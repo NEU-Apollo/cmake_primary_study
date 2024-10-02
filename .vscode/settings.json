@@ -1,0 +1,4 @@
+{
+    "cmake.sourceDirectory": "/home/weisiyuan/cmake_test",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+}
