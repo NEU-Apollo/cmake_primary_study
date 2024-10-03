@@ -25,12 +25,26 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Relase)
 endif()
 
-find_package(Threads REQUIRED)
+if(NOT DEFINED MYHELLO)
+    set(MYHELLO "hello" CACHE STRING "hello_string_comment")
+endif()
+
+find_package(Threads COMPONENTS Threads REQUIRED)
+
+# 向CmakeCache.txt中写入自己的变量
+set(myvar "myvar" CACHE STRING "myvar_string_comment")
+# 每次强制更新CMakeCache.txt的缓存
+set(myvar_force "myvar_force_1" CACHE STRING "myvar_force_string_comment" FORCE)
+
+# 等价于
+# set(USR_MYVAR ON CACHE BOOL "user myvar")
+option(USE_MYVAR "use myvar" ON)
 
 set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(fmt)
 add_subdirectory(src)
+message(STATUS "sonvar: " ${SON_VAR1})
 
 # GLOB：告诉 CMake 使用通配符模式来查找文件。
 # sources：保存找到的文件列表的变量名称。
@@ -41,14 +55,40 @@ add_subdirectory(src)
 # file(GLOB sources CMAKE_CONFIGURE_DEPENDS src/*.cpp)
 # file(GLOB_RECURSE sources CMAKE_CONFIGURE_DEPENDS src/*.cpp)
 
-#不监视目录中文件变化
-aux_source_directory(. sources)
-aux_source_directory(src sources)
-
 add_executable(main)
-target_sources(main PUBLIC ${sources})
-target_include_directories(main PUBLIC ${INCLUDE_DIR})
-target_link_libraries(main PUBLIC fmt Threads::Threads)
+target_sources(main PUBLIC main.cpp)
+target_link_libraries(main PUBLIC hellolib worldlib fmt Threads::Threads)
+target_compile_definitions(main PUBLIC MY_DEFINE_IN_CMAKE=23333)
+
+# 使用 STREQUAL 进行精确字符串比较。
+# 使用 MATCHES 进行正则表达式匹配，适合模式匹配的情况。
+# if(CMAKE_SYSTEM_NAME MATCHES "Linux") 
+#     target_compile_definitions(main PUBLIC MY_SYSTEM_NAME="Linux")
+# elseif(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+#     target_compile_definitions(main PUBLIC MY_SYSTEM_NAME="Darwin")
+# elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
+#     target_compile_definitions(main PUBLIC MY_SYSTEM_NAME="Windows")
+# endif()
+# 或者
+# if(WIN32) # windows
+#     target_compile_definitions(main PUBLIC MY_SYSTEM_NAME="Windows")
+# elseif(APPLE) # MacOS iOS
+#     target_compile_definitions(main PUBLIC MY_SYSTEM_NAME="Darwin")
+# elseif(UNIX AND NOT APPLE) # Unix类但不是苹果
+#     target_compile_definitions(main PUBLIC MY_SYSTEM_NAME="Linux")
+# endif()
+# 或者使用生成器表达式
+# $<$<类型：值>:为真时的表达式>
+target_compile_definitions(main PUBLIC
+            $<$<PLATFORM_ID:Windows>:MY_SYSTEM_NAME="Windows">
+            $<$<PLATFORM_ID:Darwin>:MY_SYSTEM_NAME="Darwin">
+            $<$<PLATFORM_ID:Linux,FreeBSD>:MY_SYSTEM_NAME="Linux_or_FreeBSD">)
+target_compile_definitions(main PUBLIC MY_COMPILER_ID="${CMAKE_CXX_COMPILER_ID}")
+
+set_target_properties(main PROPERTIES    
+                            CXX_STANDARD 17
+                            CXX_STANDARD_REQUIRED ON)
+# set_property(TARGET main PROPERTY CXX_STANDARD 17)
 
 # target_link_directories(main PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
@@ -79,3 +119,29 @@ message(STATUS "CMAKE_PROJECT_NAME " ${CMAKE_PROJECT_NAME})
 
 # BOOL类型，当前项目否是最顶层根项目
 message(STATUS "PROJECT_IS_TOP_LEVEL " ${PROJECT_IS_TOP_LEVEL})
+
+if(DEFINED ENV{PATH}) #if不需要加$符号
+    message(STATUS "PATH= " $ENV{PATH}) 
+else()
+    message(STATUS "NO_PATH")
+endif()
+
+set(ENV{MY_ENV_VAR} "my_env_var")
+if(DEFINED ENV{MY_ENV_VAR})
+    message(STATUS "MY_ENV_VAR= " $ENV{MY_ENV_VAR})
+else()
+    message(STATUS "NO_MY_ENV_VAR")
+endif()
+
+
+add_custom_target(run COMMAND $<TARGET_FILE:main>)
+message(STATUS "CMAKE_EDIT_COMMAND " ${CMAKE_EDIT_COMMAND})
+# WORKING_DIRECTORY配置此target的工作目录
+if(CMAKE_EDIT_COMMAND) 
+    add_custom_target(configure COMMAND ${CMAKE_EDIT_COMMAND} -B ${PROJECT_BINARY_DIR}
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+endif()
+# 或者-S指定ccmake源码目录（CMakeLists.txt所在目录）
+# if(CMAKE_EDIT_COMMAND) 
+#     add_custom_target(configure COMMAND ${CMAKE_EDIT_COMMAND} -B ${PROJECT_BINARY_DIR} -S ${PROJECT_SOURCE_DIR})
+# endif()
